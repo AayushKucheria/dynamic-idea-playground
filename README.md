@@ -31,3 +31,5 @@ The Go board now supports 9×9, 13×13, and 19×19 modes. Use the size selector 
 3. Reference both the Go playground and supporting panels in summaries when your change touches them.
 
 The goal is to keep the experience calm, invitational, and reflective as we expand beyond the initial Go slice.
+
+
