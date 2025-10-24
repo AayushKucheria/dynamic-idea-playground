@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 export type StoneColor = "black" | "white";
 
@@ -11,28 +11,32 @@ export interface GoMove {
 }
 
 interface GoBoardProps {
-  size?: number;
+  boardSize?: number;
   onMove?: (move: GoMove) => void;
   onReset?: () => void;
 }
 
 const COLUMN_LETTERS = "ABCDEFGHJKLMNOPQRSTUVWXYZ";
 
-export function formatCoordinate(row: number, column: number, size: number) {
+export function formatCoordinate(row: number, column: number) {
   const letter = COLUMN_LETTERS[column] ?? String.fromCharCode(65 + column);
   return `${letter}${row + 1}`;
 }
 
-export function GoBoard({ size = 9, onMove, onReset }: GoBoardProps) {
-  const [stones, setStones] = useState<Array<StoneColor | null>>(
-    () => new Array(size * size).fill(null)
+export function GoBoard({ boardSize = 9, onMove, onReset }: GoBoardProps) {
+  const [stones, setStones] = useState<Array<StoneColor | null>>(() =>
+    createEmptyBoard(boardSize)
   );
   const [currentPlayer, setCurrentPlayer] = useState<StoneColor>("black");
+  const [lastMoveIndex, setLastMoveIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    setStones(new Array(size * size).fill(null));
-    setCurrentPlayer("black");
-  }, [size]);
+  const gridTemplate = useMemo(
+    () => ({
+      gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))`,
+      gridTemplateRows: `repeat(${boardSize}, minmax(0, 1fr))`,
+    }),
+    [boardSize]
+  );
 
   const placeStone = (index: number) => {
     if (stones[index]) {
@@ -43,16 +47,18 @@ export function GoBoard({ size = 9, onMove, onReset }: GoBoardProps) {
     const nextStones = [...stones];
     nextStones[index] = moveColor;
     setStones(nextStones);
+    setLastMoveIndex(index);
     setCurrentPlayer((prev) => (prev === "black" ? "white" : "black"));
 
-    const row = Math.floor(index / size);
-    const column = index % size;
+    const row = Math.floor(index / boardSize);
+    const column = index % boardSize;
     onMove?.({ row, column, color: moveColor });
   };
 
   const resetBoard = () => {
-    setStones(new Array(size * size).fill(null));
+    setStones(createEmptyBoard(boardSize));
     setCurrentPlayer("black");
+    setLastMoveIndex(null);
     onReset?.();
   };
 
@@ -76,17 +82,11 @@ export function GoBoard({ size = 9, onMove, onReset }: GoBoardProps) {
         </button>
       </div>
       <div className="relative w-full overflow-hidden rounded-3xl border border-amber-900/40 bg-gradient-to-br from-amber-200 via-amber-300 to-amber-200 p-4 shadow-[inset_0_8px_24px_rgba(120,72,18,0.35)]">
-        <div
-          className="grid h-full w-full"
-          style={{
-            gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${size}, minmax(0, 1fr))`,
-          }}
-        >
+        <div className="grid h-full w-full" style={gridTemplate}>
           {stones.map((stone, index) => {
-            const row = Math.floor(index / size);
-            const column = index % size;
-            const coordinate = formatCoordinate(row, column, size);
+            const row = Math.floor(index / boardSize);
+            const column = index % boardSize;
+            const coordinate = formatCoordinate(row, column);
             return (
               <button
                 key={coordinate}
@@ -97,10 +97,14 @@ export function GoBoard({ size = 9, onMove, onReset }: GoBoardProps) {
               >
                 {stone && (
                   <span
-                    className={`h-8 w-8 rounded-full shadow-lg ${
+                    className={`h-8 w-8 rounded-full shadow-lg transition ${
                       stone === "black"
                         ? "bg-zinc-900 shadow-black/50"
                         : "bg-zinc-100 shadow-white/70"
+                    } ${
+                      lastMoveIndex === index
+                        ? "ring-2 ring-offset-2 ring-amber-500 ring-offset-amber-200"
+                        : ""
                     }`}
                   />
                 )}
@@ -111,4 +115,8 @@ export function GoBoard({ size = 9, onMove, onReset }: GoBoardProps) {
       </div>
     </div>
   );
+}
+
+function createEmptyBoard(boardSize: number) {
+  return new Array<StoneColor | null>(boardSize * boardSize).fill(null);
 }

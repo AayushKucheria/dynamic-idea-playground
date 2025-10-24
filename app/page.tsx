@@ -5,11 +5,10 @@ import { useMemo, useState } from "react";
 import { GoBoard, GoMove, formatCoordinate } from "./components/GoBoard";
 import { InsightItem, InsightPanel } from "./components/InsightPanel";
 
-const BOARD_SIZE = 9;
-
 type LoggedMove = GoMove & { moveNumber: number };
 
 export default function Home() {
+  const [boardSize, setBoardSize] = useState(9);
   const [moves, setMoves] = useState<LoggedMove[]>([]);
 
   const handleMove = (move: GoMove) => {
@@ -26,6 +25,14 @@ export default function Home() {
     setMoves([]);
   };
 
+  const handleBoardSizeChange = (nextSize: number) => {
+    if (nextSize === boardSize) {
+      return;
+    }
+    setBoardSize(nextSize);
+    setMoves([]);
+  };
+
   const totalMoves = moves.length;
   const lastMove = moves.at(-1);
   const nextPlayer = totalMoves % 2 === 0 ? "Black" : "White";
@@ -39,8 +46,7 @@ export default function Home() {
         heading: `Latest move · ${colorLabel(lastMove.color)}`,
         detail: `Move ${lastMove.moveNumber} landed at ${formatCoordinate(
           lastMove.row,
-          lastMove.column,
-          BOARD_SIZE
+          lastMove.column
         )}.`,
         tag: "Fresh",
       });
@@ -68,14 +74,19 @@ export default function Home() {
       detail: lastMove
         ? `Zoom in around ${formatCoordinate(
             lastMove.row,
-            lastMove.column,
-            BOARD_SIZE
+            lastMove.column
           )}. What supporting stones would give it breathing room?`
         : "Glance at the star points. Which one feels like the best anchor today?",
     });
 
+    entries.push({
+      id: "board-scale",
+      heading: `${boardLabel(boardSize)} board`,
+      detail: `Resizing to ${boardSize}×${boardSize} resets the tone—make the choice with care.`,
+    });
+
     return entries;
-  }, [lastMove, totalMoves]);
+  }, [boardSize, lastMove, totalMoves]);
 
   const recentThoughts = useMemo<InsightItem[]>(() => {
     if (moves.length === 0) {
@@ -94,7 +105,7 @@ export default function Home() {
       .map((move) => ({
         id: `move-${move.moveNumber}`,
         heading: `Move ${move.moveNumber} · ${colorLabel(move.color)}`,
-        detail: `Placed at ${formatCoordinate(move.row, move.column, BOARD_SIZE)}.`,
+        detail: `Placed at ${formatCoordinate(move.row, move.column)}.`,
         tag: colorLabel(move.color),
       }));
   }, [moves]);
@@ -138,6 +149,14 @@ export default function Home() {
           heading: "Imagine the reply",
           detail: `Before you click, picture how ${nextPlayer.toLowerCase()} might answer. That anticipation is the playground.`,
         },
+        {
+          id: "quest-scale",
+          heading: "Feel the scale",
+          detail: `Notice how the ${boardLabel(
+            boardSize
+          )} board shifts the rhythm. Where would a wider board invite you to play?`,
+          tag: boardLabel(boardSize),
+        },
       ];
     }
 
@@ -147,8 +166,7 @@ export default function Home() {
         heading: "Extend from your last move",
         detail: `Sketch a connection from ${formatCoordinate(
           lastMove.row,
-          lastMove.column,
-          BOARD_SIZE
+          lastMove.column
         )} that strengthens the group.`,
         tag: "Connect",
       },
@@ -164,7 +182,7 @@ export default function Home() {
           "Narrate why the last stone felt right. Giving it language helps the playground adapt.",
       },
     ];
-  }, [lastMove, nextPlayer]);
+  }, [boardSize, lastMove, nextPlayer]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -201,16 +219,39 @@ export default function Home() {
             <section className="flex flex-col gap-6 rounded-3xl border border-white/15 bg-white/90 p-6 text-slate-900 shadow-[0_28px_60px_rgba(15,23,42,0.25)] backdrop-blur">
               <div className="flex flex-col gap-2 text-slate-700">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                  Active playground
+                  Board overview
                 </p>
                 <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-                  9 × 9 Go board
+                  {boardSize} × {boardSize} Go board
                 </h2>
                 <p className="text-sm text-slate-600">
                   Tap any intersection to drop a stone. {nextPlayer} takes the next move.
                 </p>
+                <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-500">
+                  <span className="rounded-full border border-slate-900/10 bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                    {boardLabel(boardSize)} pace
+                  </span>
+                  <label className="flex items-center gap-2">
+                    <span className="font-semibold uppercase tracking-[0.2em]">Resize</span>
+                    <select
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500"
+                      value={boardSize}
+                      aria-label="Select board size"
+                      onChange={(event) => handleBoardSizeChange(Number(event.target.value))}
+                    >
+                      {[9, 13, 19].map((size) => (
+                        <option key={size} value={size}>{`${size}×${size}`}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
               </div>
-              <GoBoard size={BOARD_SIZE} onMove={handleMove} onReset={handleReset} />
+              <GoBoard
+                key={boardSize}
+                boardSize={boardSize}
+                onMove={handleMove}
+                onReset={handleReset}
+              />
             </section>
             <InsightPanel
               title="Recent thoughts"
@@ -233,4 +274,15 @@ export default function Home() {
 
 function colorLabel(color: GoMove["color"]) {
   return color === "black" ? "Black" : "White";
+}
+
+function boardLabel(size: number) {
+  switch (size) {
+    case 19:
+      return "expansive";
+    case 13:
+      return "attentive";
+    default:
+      return "compact";
+  }
 }
