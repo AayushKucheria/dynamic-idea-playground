@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dynamic Idea Playground
 
-## Getting Started
+Dynamic Idea Playground (DIP) is an experiment in fluid, context-sensitive interfaces. The current slice focuses on a Go strategy playground that reshapes its surrounding context panels as you interact with the board.
 
-First, run the development server:
+## Getting started
+Run the development server and open the playground locally:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Navigate to <http://localhost:3000> to explore the experience. Edits under `app/` hot-reload automatically.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project structure
+- `app/page.tsx` — Renders the Go playground framed by insight panels.
+- `app/components/GoBoard.tsx` — Interactive 9×9 board with alternating stone placement.
+- `app/components/InsightPanel.tsx` — Shared shell for the narrative side panels.
+- `docs/dip-context.md` — Full concept brief, motivation, and design intent captured from the original Hack0 submission.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Design intent
+Before making significant UX or narrative changes, read `docs/dip-context.md`. It captures the motivations, constraints, and cultural shifts the playground is meant to embody so future iterations stay aligned with the original vision.
 
-## Learn More
+## Contributing
+1. Follow the guidance in `AGENTS.md` to maintain tone and structure.
+2. Run relevant linting or test commands before opening a pull request.
+3. Reference both the Go playground and supporting panels in summaries when your change touches them.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The goal is to keep the experience calm, invitational, and reflective as we expand beyond the initial Go slice.
