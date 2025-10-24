@@ -202,21 +202,9 @@ export default function Home() {
             Drop stones, notice patterns, and let the surrounding context reshape itself around your moves.
           </p>
         </header>
-        <div className="grid flex-1 gap-6 lg:grid-cols-[290px_minmax(0,1fr)_290px]">
+        <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex flex-col gap-6">
-            <InsightPanel
-              title="Things we want to remember"
-              subtitle="Anchors that keep this session grounded."
-              items={rememberItems}
-            />
-            <InsightPanel
-              title="Quick thoughts"
-              subtitle="Snap impressions to keep the flow moving."
-              items={quickThoughts}
-            />
-          </div>
-          <div className="flex flex-col gap-6">
-            <section className="flex flex-col gap-6 rounded-3xl border border-white/15 bg-white/90 p-6 text-slate-900 shadow-[0_28px_60px_rgba(15,23,42,0.25)] backdrop-blur">
+            <section className="flex flex-1 flex-col gap-6 rounded-3xl border border-white/15 bg-white/90 p-6 text-slate-900 shadow-[0_28px_60px_rgba(15,23,42,0.25)] backdrop-blur sm:p-8 lg:min-h-[70vh]">
               <div className="flex flex-col gap-2 text-slate-700">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
                   Board overview
@@ -246,12 +234,14 @@ export default function Home() {
                   </label>
                 </div>
               </div>
-              <GoBoard
-                key={boardSize}
-                boardSize={boardSize}
-                onMove={handleMove}
-                onReset={handleReset}
-              />
+              <div className="flex-1">
+                <GoBoard
+                  key={boardSize}
+                  boardSize={boardSize}
+                  onMove={handleMove}
+                  onReset={handleReset}
+                />
+              </div>
             </section>
             <InsightPanel
               title="Recent thoughts"
@@ -259,13 +249,23 @@ export default function Home() {
               items={recentThoughts}
             />
           </div>
-          <div className="flex flex-col gap-6">
+          <aside className="flex flex-col gap-6 lg:max-h-[80vh] lg:overflow-y-auto lg:pr-1">
+            <InsightPanel
+              title="Things we want to remember"
+              subtitle="Anchors that keep this session grounded."
+              items={rememberItems}
+            />
+            <InsightPanel
+              title="Quick thoughts"
+              subtitle="Snap impressions to keep the flow moving."
+              items={quickThoughts}
+            />
             <InsightPanel
               title="Possible quests"
               subtitle="Optional prompts to stretch the position."
               items={questItems}
             />
-          </div>
+          </aside>
         </div>
       </div>
     </div>
