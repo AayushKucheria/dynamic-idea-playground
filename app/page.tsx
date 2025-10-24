@@ -1,15 +1,53 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
 import { GoBoard, GoMove, formatCoordinate } from "./components/GoBoard";
 import { InsightItem, InsightPanel } from "./components/InsightPanel";
+import { OpenRouterKeyDialog } from "./components/OpenRouterKeyDialog";
 
 type LoggedMove = GoMove & { moveNumber: number };
+
+const OPENROUTER_STORAGE_KEY = "dip-openrouter-key";
 
 export default function Home() {
   const [boardSize, setBoardSize] = useState(9);
   const [moves, setMoves] = useState<LoggedMove[]>([]);
+  const [apiKey, setApiKey] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  useEffect(() => {
+    const storedKey = window.localStorage.getItem(OPENROUTER_STORAGE_KEY);
+
+    startTransition(() => {
+      if (storedKey) {
+        setApiKey(storedKey);
+        setIsDialogOpen(false);
+      } else {
+        setIsDialogOpen(true);
+      }
+    });
+  }, []);
+
+  const handleSaveApiKey = (key: string) => {
+    setApiKey(key);
+    window.localStorage.setItem(OPENROUTER_STORAGE_KEY, key);
+    setIsDialogOpen(false);
+  };
+
+  const handleClearApiKey = () => {
+    setApiKey("");
+    window.localStorage.removeItem(OPENROUTER_STORAGE_KEY);
+    setIsDialogOpen(true);
+  };
+
+  const handleCancelDialog = () => {
+    if (apiKey) {
+      setIsDialogOpen(false);
+    }
+  };
+
+  const hasStoredKey = apiKey.length > 0;
 
   const handleMove = (move: GoMove) => {
     setMoves((previous) => [
@@ -201,6 +239,16 @@ export default function Home() {
           <p className="text-sm text-slate-300 sm:text-base">
             Drop stones, notice patterns, and let the surrounding context reshape itself around your moves.
           </p>
+          <div className="mt-2 flex flex-col items-center gap-2 text-xs text-slate-400 lg:flex-row lg:items-center lg:gap-4">
+            <span>{hasStoredKey ? "Your OpenRouter key is stored on this device." : "Add an OpenRouter key to enable API calls."}</span>
+            <button
+              type="button"
+              className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-slate-200 transition hover:border-cyan-300 hover:text-white"
+              onClick={() => setIsDialogOpen(true)}
+            >
+              Manage API key
+            </button>
+          </div>
         </header>
         <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex flex-col gap-6">
@@ -268,6 +316,16 @@ export default function Home() {
           </aside>
         </div>
       </div>
+      {isDialogOpen ? (
+        <OpenRouterKeyDialog
+          key={hasStoredKey ? `open-${apiKey}` : "open-empty"}
+          isOpen={isDialogOpen}
+          initialValue={apiKey}
+          onSave={handleSaveApiKey}
+          onCancel={handleCancelDialog}
+          onClear={hasStoredKey ? handleClearApiKey : undefined}
+        />
+      ) : null}
     </div>
   );
 }
