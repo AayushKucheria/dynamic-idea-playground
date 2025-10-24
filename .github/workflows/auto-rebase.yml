@@ -1,23 +1,34 @@
-# .github/workflows/auto-rebase.yml
-name: Auto Rebase for Aayush (OpenAI Codex) PRs
-
+name: Auto Rebase for PRs
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
 
 jobs:
   auto-rebase:
-    if: github.actor == 'AayushKucheria'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref }}   # critical fix
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Rebase on main
         run: |
           git fetch origin main
           git rebase origin/main || true
+
+      - name: Verify not pushing to main
+        run: |
+          if [ "${{ github.head_ref }}" == "main" ]; then
+            echo "❌ Refusing to push to main!"
+            exit 1
+          fi
+
       - name: Push rebased branch
         run: |
           git push --force-with-lease origin HEAD:${{ github.head_ref }}
