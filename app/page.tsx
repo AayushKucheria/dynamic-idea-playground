@@ -1,15 +1,51 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import { GoBoard, GoMove, formatCoordinate } from "./components/GoBoard";
+import { GoBoard } from "./components/GoBoard";
 import { InsightItem, InsightPanel } from "./components/InsightPanel";
+import { GoMove, colorLabel, formatCoordinate } from "./lib/go";
 
 type LoggedMove = GoMove & { moveNumber: number };
+
+type QuestAgentStatus = "idle" | "loading" | "ready" | "error";
+
+type QuestAgentResponse = {
+  suggestions?: string[];
+  raw?: string;
+};
 
 export default function Home() {
   const [boardSize, setBoardSize] = useState(9);
   const [moves, setMoves] = useState<LoggedMove[]>([]);
+  const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
+  const [questReplayToken, setQuestReplayToken] = useState(0);
+  const [questGuidance, setQuestGuidance] = useState<string[]>([]);
+  const [questAgentStatus, setQuestAgentStatus] = useState<QuestAgentStatus>(
+    "idle"
+  );
+  const [questAgentError, setQuestAgentError] = useState<string | null>(null);
+
+  const questRequestRef = useRef(0);
+  const lastQuestIdRef = useRef<string | null>(null);
+  const questReplayRef = useRef(questReplayToken);
+
+  const resetQuestPipeline = useCallback(() => {
+    setActiveQuestId(null);
+    setQuestReplayToken(0);
+    setQuestGuidance([]);
+    setQuestAgentStatus("idle");
+    setQuestAgentError(null);
+    questRequestRef.current += 1;
+    lastQuestIdRef.current = null;
+    questReplayRef.current = 0;
+  }, []);
 
   const handleMove = (move: GoMove) => {
     setMoves((previous) => [
@@ -23,6 +59,7 @@ export default function Home() {
 
   const handleReset = () => {
     setMoves([]);
+    resetQuestPipeline();
   };
 
   const handleBoardSizeChange = (nextSize: number) => {
@@ -31,7 +68,13 @@ export default function Home() {
     }
     setBoardSize(nextSize);
     setMoves([]);
+    resetQuestPipeline();
   };
+
+  const handleQuestSelect = useCallback((item: InsightItem) => {
+    setActiveQuestId(item.id);
+    setQuestReplayToken((token) => token + 1);
+  }, []);
 
   const totalMoves = moves.length;
   const lastMove = moves.at(-1);
@@ -184,6 +227,129 @@ export default function Home() {
     ];
   }, [boardSize, lastMove, nextPlayer]);
 
+  const activeQuest = useMemo(
+    () => questItems.find((item) => item.id === activeQuestId) ?? null,
+    [activeQuestId, questItems]
+  );
+
+  const sendQuestAgentUpdate = useCallback(
+    async (reason: "quest-change" | "board-change") => {
+      if (!activeQuest) {
+        return;
+      }
+
+      const requestId = ++questRequestRef.current;
+
+      if (reason === "quest-change") {
+        setQuestGuidance([]);
+      }
+
+      setQuestAgentStatus("loading");
+      setQuestAgentError(null);
+
+      try {
+        const response = await fetch("/api/quest-agent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            boardSize,
+            nextPlayer,
+            quest: {
+              id: activeQuest.id,
+              heading: activeQuest.heading,
+              detail: activeQuest.detail ?? "",
+            },
+            moves: moves.map((move) => ({
+              row: move.row,
+              column: move.column,
+              color: move.color,
+              moveNumber: move.moveNumber,
+            })),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Quest agent request failed: ${response.status}`);
+        }
+
+        const data = (await response.json()) as QuestAgentResponse;
+
+        if (questRequestRef.current !== requestId) {
+          return;
+        }
+
+        const parsedSuggestions = (data.suggestions ?? [])
+          .map((entry) => entry?.trim())
+          .filter((entry): entry is string => Boolean(entry && entry.length > 0));
+
+        if (parsedSuggestions.length > 0) {
+          setQuestGuidance(parsedSuggestions);
+          setQuestAgentStatus("ready");
+          return;
+        }
+
+        if (data.raw && data.raw.trim().length > 0) {
+          setQuestGuidance([data.raw.trim()]);
+          setQuestAgentStatus("ready");
+          return;
+        }
+
+        setQuestGuidance([
+          "The quest agent didn't return suggestions this time. Try another move or refresh the quest.",
+        ]);
+        setQuestAgentStatus("ready");
+      } catch (error) {
+        if (questRequestRef.current !== requestId) {
+          return;
+        }
+
+        console.error(error);
+        setQuestAgentStatus("error");
+        setQuestAgentError(
+          "The quest agent is unavailable right now. Try again in a moment."
+        );
+      }
+    },
+    [activeQuest, boardSize, moves, nextPlayer]
+  );
+
+  useEffect(() => {
+    if (!activeQuest) {
+      setQuestAgentStatus("idle");
+      setQuestGuidance([]);
+      setQuestAgentError(null);
+      lastQuestIdRef.current = null;
+      questReplayRef.current = questReplayToken;
+      return;
+    }
+
+    const questChanged = lastQuestIdRef.current !== activeQuest.id;
+    const tokenChanged = questReplayRef.current !== questReplayToken;
+
+    lastQuestIdRef.current = activeQuest.id;
+    questReplayRef.current = questReplayToken;
+
+    const reason =
+      questChanged || tokenChanged ? "quest-change" : "board-change";
+
+    void sendQuestAgentUpdate(reason);
+  }, [activeQuest, questReplayToken, sendQuestAgentUpdate]);
+
+  const questStatusLabel = useMemo(() => {
+    switch (questAgentStatus) {
+      case "loading":
+        return "Listening";
+      case "ready":
+        return "Responded";
+      case "error":
+        return "Offline";
+      default:
+        return "Idle";
+    }
+  }, [questAgentStatus]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-8 px-6 py-12 lg:px-12">
@@ -252,6 +418,56 @@ export default function Home() {
                 onMove={handleMove}
                 onReset={handleReset}
               />
+              <div className="rounded-2xl border border-slate-300/60 bg-white/70 p-5 text-slate-700 shadow-sm transition dark:border-slate-700/60 dark:bg-slate-900/60 dark:text-slate-200">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+                    Quest agent
+                  </p>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                    {questStatusLabel}
+                  </span>
+                </div>
+                {!activeQuest ? (
+                  <p className="pt-3 text-sm text-slate-600 dark:text-slate-400">
+                    Select a quest on the right to invite calm suggestions for your next moves.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3 pt-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                        {activeQuest.heading}
+                      </p>
+                      {activeQuest.detail && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {activeQuest.detail}
+                        </p>
+                      )}
+                    </div>
+                    {questAgentStatus === "error" ? (
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {questAgentError ?? "The quest agent is unavailable right now. Try again in a moment."}
+                      </p>
+                    ) : questAgentStatus === "loading" && questGuidance.length === 0 ? (
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Listening to the board and the quest focus…
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {questAgentStatus === "loading" && (
+                          <p className="text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
+                            Refreshing…
+                          </p>
+                        )}
+                        <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                          {questGuidance.map((line, index) => (
+                            <li key={`${index}-${line.slice(0, 16)}`}>{line}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </section>
             <InsightPanel
               title="Recent thoughts"
@@ -264,16 +480,14 @@ export default function Home() {
               title="Possible quests"
               subtitle="Optional prompts to stretch the position."
               items={questItems}
+              onSelect={handleQuestSelect}
+              selectedId={activeQuest?.id ?? null}
             />
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function colorLabel(color: GoMove["color"]) {
-  return color === "black" ? "Black" : "White";
 }
 
 function boardLabel(size: number) {
